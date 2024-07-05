@@ -1,6 +1,6 @@
 from langchain_pinecone import PineconeVectorStore
 from langchain_openai import OpenAIEmbeddings
-from utils.constants import *
+from app.utils.constants import *
 
 def fetch_relevant_documents(linked_issues):
     # Combine all linked issues

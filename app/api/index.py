@@ -3,8 +3,8 @@ import json
 from flask import Flask, jsonify, request, abort
 from werkzeug.exceptions import HTTPException
 
-from api import env
-from api.aibot import *
+from app.api import env
+from app.api.aibot import *
 
 app = Flask(__name__)
 app.config['DEBUG'] = True

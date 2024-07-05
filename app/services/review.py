@@ -1,10 +1,10 @@
 import os
 from github import Github
 from langchain.prompts.prompt import PromptTemplate
-from utils import *
-from constants import *
-from utils.pineconeutils import fetch_relevant_documents
-from utils.githubutils import fetch_linked_issues
+from app.utils.utils import *
+from app.utils.constants import *
+from app.utils.pineconeutils import fetch_relevant_documents
+from app.utils.githubutils import fetch_linked_issues
 
 def main():
     # Initialize GitHub API with token

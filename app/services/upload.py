@@ -3,7 +3,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_pinecone import PineconeVectorStore
 from langchain_community.document_loaders.pdf import PyPDFLoader
 from langchain_community.document_loaders import DirectoryLoader
-from utils.constants import *
+from app.utils.constants import *
 
 # Prep documents to be uploaded to the vector database (Pinecone)
 loader = DirectoryLoader('../', glob="**/*.pdf", loader_cls=PyPDFLoader)
