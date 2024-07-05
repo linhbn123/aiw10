@@ -21,6 +21,8 @@ langchain-pinecone = "^0.1.1"
 langchain-text-splitters = "^0.2.2"
 langsmith = "^0.1.83"
 PyGithub = "^2.3.0"
+flask = "^3.0.3"
+marshmallow = "^3.21.3"
 
 [tool.poetry.group.dev.dependencies]
 langchain-cli = ">=0.0.25"
