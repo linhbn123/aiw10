@@ -41,42 +41,50 @@ def github_webhook():
     print(f"Received event: {event} with body {payload}")
 
     if event == 'push':
-        ref = payload.get('ref', '')
-        repo_path = f"{payload['repository']['owner']['login']}/{payload['repository']['name']}"
-        commits = payload.get('commits', [])
-        filtered_commits = [commit for commit in commits if commit['author']['username'] != env.BOOT_USERNAME]
-        
-        if not filtered_commits:
-            return jsonify({'message': 'No relevant commits'})
+        ref = payload.get('ref', None)
+        repo = payload.get('repository', {})
+        repo_path = repo.get('full_name', None)
 
         if ref == 'refs/heads/main':
-            response = on_new_main_commit()
+            response = on_new_main_commit(repo_path)
         elif 'pull_request' in payload:
-            pr = payload['pull_request']
+            pr = payload.get('pull_request', {})
             if pr.get('state') == 'open' and pr.get('merged') == False:
-                pr_url = pr.get('html_url', '')
-                source_branch = pr.get('head', {}).get('ref', '')
-                response = on_new_pr_commit(repo_path, pr_url, source_branch)
+                commits = payload.get('commits', [])
+                if all(commit.get('author', {}).get('username', None) != env.BOOT_USERNAME for commit in commits):
+                    repo_owner = repo.get('owner', {}).get('login', None)
+                    repo_name = repo.get('name', None)
+                    pr_number = pr.get('number', None)
+                    source_branch = pr.get('head', {}).get('ref', None)
+                    response = on_new_pr_commits(repo_owner, repo_name, repo_path, pr_number, source_branch)
+                else:
+                    response = {'message': 'Commit author is the bot, ignoring'}
             else:
                 response = {'message': 'Pull request is not ready'}
         else:
             response = {'message': 'Commit not to main branch or ready pull request'}
  
     elif event == 'issue_comment':
-        # Handle comments for a ready pull request that start with /support and are not raised by the bot
+        # Handle comments for a pull request that start with /support and are not raised by the bot
         issue_comment = payload.get('comment', {})
-        pr = payload.get('issue', {}).get('pull_request', None)
+        pr = payload.get('issue', {}).get('pull_request', {})
         if pr and issue_comment:
-            comment_body = issue_comment.get('body', '')
-            commenter_username = issue_comment.get('user', {}).get('login', '')
-            pr_state = payload.get('issue', {}).get('state', '')
-            pr_url = payload.get('issue', {}).get('pull_request', {}).get('html_url', '')
-            source_branch = payload.get('issue', {}).get('pull_request', {}).get('head', {}).get('ref', '')
+            comment_body = issue_comment.get('body', None)
+            commenter_username = issue_comment.get('user', {}).get('login', None)
+            in_reply_to_id = issue_comment.get('in_reply_to_id', None)
             
             if (comment_body.startswith('/support') and 
-                commenter_username != env.BOOT_USERNAME and 
-                pr_state == 'open'):
-                response = on_new_pr_comment(pr_url, source_branch, payload)
+                commenter_username != env.BOOT_USERNAME):
+                pr_url = pr.get('html_url', '')
+                pr_number = commonutils.extract_pr_number(pr_url)
+                repo_path = payload.get('repository', {}).get('full_name', None)
+                # TODO source branch can't be fetched
+                source_branch = payload.get('issue', {}).get('pull_request', {}).get('head', {}).get('ref', '')
+                comment = {
+                    'comment': comment_body,
+                    'replies': githubutils.get_replies(repo_path, pr_number, in_reply_to_id)
+                }
+                response = on_new_pr_comment(repo_path, pr_number, source_branch, comment)
             else:
                 response = {'message': 'Comment does not meet criteria'}
         else:
@@ -84,22 +92,45 @@ def github_webhook():
 
     elif event == 'pull_request_review':
         # Process review comments
-        review_comments = payload.get('review', {}).get('body', [])
-        pr_url = payload.get('pull_request', {}).get('html_url', '')
-        source_branch = payload.get('pull_request', {}).get('head', {}).get('ref', '')
-        response = on_new_pr_review(pr_url, source_branch, review_comments)
+        review = payload.get('review', {})
+        review_content = review.get('body', [])
+        review_username = review.get('user', {}).get('login', None)
+        if (review_content.startswith('/support') and 
+            review_username != env.BOOT_USERNAME):
+            repo_path = payload.get('repository', {}).get('full_name', None)
+            pr = payload.get('issue', {}).get('pull_request', None)
+            pr_number = pr.get('number', {})
+            review_id = review.get('id', None)
+            review_comments = githubutils.get_review_comments(repo_path, pr_number, review_id)
+            source_branch = pr.get('head', {}).get('ref', '')
+            response = on_new_pr_review(repo_path, pr_number, source_branch, review_comments)
+        else:
+            response = {'message': 'Review does not meet criteria'}
 
     elif event == 'issues' and payload.get('action') == 'opened':
         # Handle new issue creation
         new_issue = payload.get('issue', {})
-        response = on_new_issue(new_issue)
+        issue_number = new_issue.get('number', None)
+        issue_title = new_issue.get('title', None)
+        issue_body = new_issue.get('body', None)
+        response = on_new_issue(issue_number, issue_title, issue_body)
 
     elif event == 'pull_request':
         action = payload.get('action')
         pr = payload.get('pull_request', {})
         if action in ['opened', 'ready_for_review']:
             if pr.get('state') == 'open' and not pr.get('draft', False):
-                response = on_new_pr(pr)
+                if pr.get('user', {}).get('login') != env.BOOT_USERNAME:
+                    head = pr.get('head', {})
+                    repo = pr.get('repo', {})
+                    repo_owner = repo.get('owner', {}).get('login', None)
+                    repo_name = repo.get('name', None)
+                    repo_path = repo.get('full_name', '')
+                    pr_number = pr.get('number', {})
+                    source_branch = head.get('ref', '')
+                    response = on_new_pr_commits(repo_owner, repo_name, repo_path, pr_number, source_branch)
+                else:
+                    response = {'message': 'Pull request author is the bot, ignoring'}
             else:
                 response = {'message': 'Pull request is not ready or is a draft'}
         else:

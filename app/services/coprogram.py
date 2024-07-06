@@ -1,3 +1,4 @@
+from github import Github
 from langchain_openai import ChatOpenAI
 from langchain.agents import AgentExecutor
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -6,21 +7,34 @@ from langchain.agents.format_scratchpad.openai_tools import (
     format_to_openai_tool_messages,
 )
 from langchain.agents.output_parsers.openai_tools import OpenAIToolsAgentOutputParser
-from app.utils import constants, commonutils
-from app.tools import gittools
+from app.utils import constants, commonutils, promptutils, githubutils
+from app.tools import gittools, filetools
+from app.api import env
 
 
-def beautify(repo_path, pr_number, source_branch):
+def address_review_comments(repo_path, pr_number, source_branch, comments):
+    pr = githubutils.get_pr(repo_path, pr_number)
+
+    # Get the diffs of the pull request
+    diffs = [
+        {
+            "filename": file.filename,
+            "patch": file.patch 
+        } 
+        for file in pr.get_files()
+    ]
+    
     # List of tools to use
     tools = [
         ShellTool(ask_human_input=True),
         gittools.clone_repo,
         gittools.switch_to_local_repo_path,
         gittools.checkout_source_branch,
-        gittools.get_files_from_pull_request,
-        gittools.run_autopep8,
-        gittools.has_changes,
-        gittools.commit_and_push
+        gittools.commit_and_push,
+        filetools.create_directory,
+        filetools.find_file,
+        filetools.create_file,
+        filetools.update_file
     ]
 
     # Configure the language model
@@ -32,9 +46,9 @@ def beautify(repo_path, pr_number, source_branch):
             (
                 "system",
                 """
-                You are a Python expert. 
-                You always write code following code convention and best practices in PEP8. 
-                Your audience are experienced engineers and managers.
+                You are a senior python developer. You excel at communicating with other developers and writing clean, optimized code.
+                If you're asked for opinions, you give detailed and specific actionable feedback.
+                You aren't rude, but you don't worry about being polite either.
                 """,
             ),
             ("user", "{input}"),
@@ -61,13 +75,6 @@ def beautify(repo_path, pr_number, source_branch):
 
     agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
 
-    user_prompt = f"""
-    Clone the repository {repo_path} to local directory {local_repo_path}.
-    Then in that local directory, 
-    checkout the source branch {source_branch} of pull request number {pr_number},
-    beautify all the code in the .py source code files 
-    changed by the pull request as per pep8 standards, 
-    commit the change and push to the remote repository.
-    Make sure to not touch the non-python source code files.
-    """
+    # Format data for OpenAI prompt
+    user_prompt = promptutils.construct_coprogram_prompt(repo_path, local_repo_path, pr_number, source_branch, diffs, comments)
     list(agent_executor.stream({"input": user_prompt}))

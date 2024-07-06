@@ -1,4 +1,3 @@
-import os
 import functools
 
 from langchain_core.messages import HumanMessage
@@ -10,11 +9,11 @@ from langchain_experimental.tools import PythonREPLTool
 from langgraph.graph import StateGraph, END
 
 from app.utils.agentutils import AgentState, create_agent, agent_node
-from app.tools.gittools import clone_repo, switch_to_local_repo_path, checkout_source_branch, generate_branch_name, create_branch_and_push, create_pull_request
+from app.tools.gittools import clone_repo, switch_to_local_repo_path, checkout_source_branch, generate_branch_name, create_branch_and_push, create_pull_request, link_issue_to_pull_request
 from app.tools.filetools import create_directory, find_file, create_file, update_file
 
 
-def implement_task(issue_url, issue_title, issue_body):
+def implement_task(issue_number: int, issue_title: str, issue_body: str):
     tavily_tool = TavilySearchResults(max_results=5)
 
     # This tool executes code locally, which can be unsafe. Use with caution.
@@ -72,7 +71,7 @@ def implement_task(issue_url, issue_title, issue_body):
     research_node = functools.partial(agent_node, agent=research_agent, name="Researcher")
 
     review_agent = create_agent(llm, [tavily_tool],
-                                """You are an senior developer. You excel at code reviews.
+                                """You are a senior developer. You excel at code reviews.
                                 You give detailed and specific actionable feedback.
                                 You aren't rude, but you don't worry about being polite either.
                                 Instead you just communicate directly about technical matters.
@@ -109,8 +108,8 @@ def implement_task(issue_url, issue_title, issue_body):
 
     pr_agent = create_agent(
         llm,
-        [generate_branch_name, create_branch_and_push, create_pull_request],
-        "You're tasked with checking if there are local changes, and if yes, prepare a pull request targetting main.",
+        [generate_branch_name, create_branch_and_push, create_pull_request, link_issue_to_pull_request],
+        f"You're tasked with checking if there are local changes, and if yes, prepare a pull request targetting main and then link that pull request with the issue number {issue_number}.",
     )
     pr_node = functools.partial(agent_node, agent=pr_agent, name="PrAgent")
 
@@ -138,7 +137,7 @@ def implement_task(issue_url, issue_title, issue_body):
     initial_state = AgentState(
         messages=[HumanMessage(content=f"""
                             Raise a pull request to implement the following task:
-                            Github Issue URL: {issue_url}
+                            Github Issue Number: {issue_number}
                             Github Issue Title: {issue_title}
                             Github Issue Content: {issue_body}
                             """)],

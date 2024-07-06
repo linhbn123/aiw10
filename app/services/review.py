@@ -1,61 +1,49 @@
-import os
 from github import Github
 from langchain.prompts.prompt import PromptTemplate
-from app.utils.utils import *
-from app.utils.constants import *
-from app.utils.pineconeutils import fetch_relevant_documents
-from app.utils.githubutils import fetch_linked_issues
+from langchain_openai import ChatOpenAI
+from app.utils import constants, promptutils, openaiutils, pineconeutils, githubutils
+from app.api import env
 
-def main():
-    # Initialize GitHub API with token
-    g = Github(os.getenv('GITHUB_TOKEN'))
 
-    # Get the repo path and PR number from the environment variables
-    repo_path = os.getenv('REPO_PATH')
-    pull_request_number = int(os.getenv('PR_NUMBER'))
-    
-    # Get the repo object
-    repo = g.get_repo(repo_path)
-
-    # Fetch pull request by number
-    pull_request = repo.get_pull(pull_request_number)
+def review_code_changes(repo_owner: str, repo_name: str, repo_path, pr_number):
+    pr = githubutils.get_pr(repo_path, pr_number)
 
     # Get all comments on the pull request
-    comments = pull_request.get_issue_comments()
+    comments = pr.get_issue_comments()
 
     # Filter comments by the unique string and delete them
     for comment in comments:
-        if UNIQUE_STRING in comment.body:
+        if constants.UNIQUE_STRING in comment.body:
             print(f"Deleting comment {comment.id} containing the unique string")
             comment.delete()
 
-    linked_issues = fetch_linked_issues()
+    linked_issues = githubutils.fetch_linked_issues(repo_owner, repo_name, pr_number)
 
     if len(linked_issues) == 0:
-        comment = pull_request.create_issue_comment(f"{UNIQUE_STRING}\nThere are no linked issues. Auto-review can't be done.")
+        comment = pr.create_issue_comment(f"{constants.UNIQUE_STRING}\nThere are no linked issues. Auto-review can't be done.")
         print("Comment created with ID:", comment.id)
         return
 
     # Get the diffs of the pull request
-    pull_request_diffs = [
+    diffs = [
         {
             "filename": file.filename,
             "patch": file.patch 
         } 
-        for file in pull_request.get_files()
+        for file in pr.get_files()
     ]
 
     # Format data for OpenAI prompt
-    prompt = construct_review_prompt(pull_request_diffs, linked_issues)
+    prompt = promptutils.construct_review_prompt(diffs, linked_issues)
 
     # Call OpenAI to generate the review
-    generated_review = call_openai(prompt)
+    generated_review = openaiutils.call_openai(prompt)
 
     # Get the relevant documents
-    relevant_documents = fetch_relevant_documents(linked_issues)
+    relevant_documents = pineconeutils.fetch_relevant_documents(repo_path, linked_issues)
 
     # Format data for OpenAI prompt
-    query = construct_suggestion_prompt(pull_request_diffs)
+    query = promptutils.construct_suggestion_prompt(diffs)
 
     # Adding context to our prompt
     template = PromptTemplate(template="{query} Context: {context}", input_variables=["query", "context"])
@@ -66,8 +54,5 @@ def main():
     improvement_suggestions = llm.invoke(prompt_with_context)
 
     # Write a comment on the pull request
-    comment = pull_request.create_issue_comment(f"{UNIQUE_STRING}\n\n{generated_review}\n\n{improvement_suggestions.content}")
+    comment = pr.create_issue_comment(f"{constants.UNIQUE_STRING}\n\n{generated_review}\n\n{improvement_suggestions.content}")
     print("Comment created with ID:", comment.id)
-
-if __name__ == '__main__':
-    main()

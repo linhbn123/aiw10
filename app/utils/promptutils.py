@@ -1,6 +1,5 @@
-import os
-from langchain_openai import ChatOpenAI
-from langchain_core.output_parsers.string import StrOutputParser
+from app.utils import commonutils
+
 
 def construct_review_prompt(diffs, linked_issues):
 
@@ -43,6 +42,7 @@ def construct_review_prompt(diffs, linked_issues):
     )
     return prompt
 
+
 def construct_suggestion_prompt(diffs):
 
     # Combine the changes into a string with clear delineation.
@@ -65,16 +65,34 @@ def construct_suggestion_prompt(diffs):
     )
     return prompt
 
-def call_openai(prompt):
-    client = ChatOpenAI(api_key = os.getenv("OPENAI_API_KEY"), model="gpt-3.5-turbo")
-    messages = [
-        {"role": "system", "content": "You are a highly skilled engineer and your job is to review pull requests"},
-        {"role": "user", "content": prompt}
-    ]
-    try:
-        response = client.invoke(input=messages)
-        parser = StrOutputParser()
-        content = parser.invoke(input=response)
-        return content
-    except Exception as e:
-        return f"An error occurred: {e}"
+
+def construct_coprogram_prompt(repo_path: str, local_repo_path: str, pr_number: int, source_branch: str, diffs, comments):
+
+    # Combine the changes into a string with clear delineation.
+
+    combined_diffs = "\n".join([
+        f"File: {file['filename']}\nDiff: \n{file['patch']}\n"
+        for file in diffs
+    ])+"\n\n"
+
+    # Combine all comments
+    combined_comments = commonutils.to_formatted_json_string(comments) + "\n\n"
+
+    # Construct the prompt with clear instructions for the LLM.
+    prompt = (
+        "Address the below review comments.\n"
+        "- If the comments ask you to make code changes, then you clone the repository "
+        f"{repo_path} to local directory {local_repo_path}. "
+        f"Then in that local directory,  checkout the source branch {source_branch} "
+        f"of pull request number {pr_number}, make code changes as per the review comments, "
+        "commit the change and push to the remote repository.\n"
+        "- If the comments do not ask you to make code changes, answer them. Be clear and concise.\n"
+        "-------------------------------------------------------------------------------------\n"
+        "Review comments:\n"
+        f"{combined_comments}\n"
+        "-------------------------------------------------------------------------------------\n"
+        "Code changes:\n"
+        f"{combined_diffs}\n"
+        "-------------------------------------------------------------------------------------\n"
+    )
+    return prompt

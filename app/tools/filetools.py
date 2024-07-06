@@ -2,7 +2,7 @@ import os
 import subprocess
 from typing import Optional
 from langchain.tools import tool
-from app.utils.constants import *
+from app.utils import constants
 
 @tool
 def create_directory(directory: str) -> str:
@@ -47,10 +47,10 @@ def create_file(filename: str, content: str = "", directory=""):
     # Validate file type
     try:
         _, file_type = filename.split(".")
-        assert file_type in VALID_FILE_TYPES
+        assert file_type in constants.VALID_FILE_TYPES
     except:
-        return f"Invalid filename {filename} - must end with a valid file type: {VALID_FILE_TYPES}"
-    directory_path = os.path.join(ROOT_DIR, directory)
+        return f"Invalid filename {filename} - must end with a valid file type: {constants.VALID_FILE_TYPES}"
+    directory_path = os.path.join(constants.ROOT_DIR, directory)
     file_path = os.path.join(directory_path, filename)
     if not os.path.exists(file_path):
         try:
@@ -70,9 +70,9 @@ def create_file(filename: str, content: str = "", directory=""):
 def update_file(filename: str, content: str, directory: str = ""):
     """Updates, appends, or modifies an existing file with new content."""
     if directory:
-        file_path = os.path.join(ROOT_DIR, directory, filename)
+        file_path = os.path.join(constants.ROOT_DIR, directory, filename)
     else:
-        file_path = find_file(filename, ROOT_DIR)
+        file_path = find_file(filename, constants.ROOT_DIR)
 
     if file_path and os.path.exists(file_path):
         try:
