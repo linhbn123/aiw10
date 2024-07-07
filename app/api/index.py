@@ -116,10 +116,11 @@ def github_webhook():
         # Handle new issue creation
         repo_path = payload.get('repository', {}).get('full_name', None)
         new_issue = payload.get('issue', {})
+        issue_id = new_issue.get('id', None)
         issue_number = new_issue.get('number', None)
         issue_title = new_issue.get('title', None)
         issue_body = new_issue.get('body', None)
-        response = on_new_issue(repo_path, issue_number, issue_title, issue_body)
+        response = on_new_issue(repo_path, issue_id, issue_number, issue_title, issue_body)
 
     elif event == 'pull_request':
         action = payload.get('action')

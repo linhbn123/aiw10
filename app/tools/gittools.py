@@ -226,13 +226,13 @@ def create_pull_request(repo_path: str, local_repo_path: str, source_branch: str
 
 @tool
 @traceable
-def link_issue_to_pull_request(pr_number: int, issue_number: int):
+def link_issue_to_pull_request(pr_number: int, issue_id: int):
     """
     Link the specified pull request to the specified issue.
     
     Args:
         pr_number (number): The pull request number.
-        issue_number (number): The issue number.
+        issue_id (number): The issue number.
     """
     # The GitHub personal access token
     headers = {"Authorization": f"Bearer {env.GITHUB_TOKEN}"}
@@ -259,7 +259,7 @@ def link_issue_to_pull_request(pr_number: int, issue_number: int):
     variables = {
         "input": {
             "pullRequestId": pr_number,
-            "body": f"Linking issue #{issue_number}"
+            "body": f"Linking issue #{issue_id}"
         }
     }
 

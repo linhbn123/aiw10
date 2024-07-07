@@ -1,4 +1,4 @@
-import pinecone
+from pinecone import Pinecone, ServerlessSpec
 from langchain_pinecone import PineconeVectorStore
 from langchain_openai import OpenAIEmbeddings
 from app.utils import constants, commonutils
@@ -27,17 +27,22 @@ def fetch_relevant_documents(repo_path, linked_issues):
 
 
 def create_index_if_not_exists(index_name):
-    # Initialize Pinecone
-    pinecone.init(api_key=env.PINECONE_API_KEY, environment=constants.PINECONE_ENV)
+    # Create a new Pinecone instance
+    pinecone = Pinecone(
+        api_key=env.PINECONE_API_KEY
+    )
 
     # Check if the index already exists
     if index_name not in pinecone.list_indexes():
         # Define the index configuration
         pinecone.create_index(
-            name=index_name,
-            dimension=128,
+            name=index_name, 
+            dimension=128, 
             metric='cosine',  # Similarity metric
-            shards=1
+            spec=ServerlessSpec(
+                cloud='aws',
+                region='us-west-2'
+            )
         )
 
     print(f"Index '{index_name}' is created and ready to use.")

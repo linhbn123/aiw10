@@ -8,7 +8,8 @@ def get_repo_identifier(repo_path):
 
 
 def get_formatted_current_timestamp():
-    return datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+    # Use - instead of : so that it can be used as a branch name
+    return datetime.now().strftime('%Y-%m-%dT%H-%M-%S')
 
 
 def extract_pr_number(url: str) -> int:

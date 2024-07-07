@@ -14,7 +14,7 @@ from app.tools.gittools import clone_repo, switch_to_local_repo_path, checkout_s
 from app.tools.filetools import create_directory, find_file, create_file, update_file
 
 
-def implement_task(repo_path: str, issue_number: int, issue_title: str, issue_body: str):
+def implement_task(repo_path: str, issue_id: int, issue_number: int, issue_title: str, issue_body: str):
     tavily_tool = TavilySearchResults(max_results=5)
 
     # This tool executes code locally, which can be unsafe. Use with caution.
@@ -105,23 +105,20 @@ def implement_task(repo_path: str, issue_number: int, issue_title: str, issue_bo
     checkout_agent = create_agent(
         llm,
         [clone_repo, switch_to_local_repo_path, checkout_source_branch],
-        (
-            "You're tasked with preparing the local git repository for other agents to work on it. ",
-            f"The repository path is {repo_path}, the local repository path is {local_repo_path} "
-            "and the source branch is main."
-            ),
+        "You're tasked with preparing the local git repository for other agents to work on it. " +
+        f"The repository path is {repo_path}, the local repository path is {local_repo_path} " +
+        "and the source branch is main.",
     )
     checkout_node = functools.partial(agent_node, agent=checkout_agent, name="CheckoutAgent")
 
     pr_agent = create_agent(
         llm,
         [generate_branch_name, create_branch_and_push, create_pull_request, link_issue_to_pull_request],
-        (
-            "You're tasked with checking if there are local changes, and if yes, "
-            "prepare a pull request targetting main and then link that pull request "
-            f"with the issue number {issue_number}. The repository path is {repo_path}, "
-            f"the local repository path is {local_repo_path} and the source branch "
-            "is auto-generated"),
+        "You're tasked with checking if there are local changes, and if yes, " +
+        "create a new branch, prepare a pull request targetting main " +
+        f"and then link that pull request with the issue id {issue_id}. " +
+        f"The repository path is {repo_path}, the local repository path is {local_repo_path} " +
+        "and the source branch is the branch you created",
     )
     pr_node = functools.partial(agent_node, agent=pr_agent, name="PrAgent")
 
