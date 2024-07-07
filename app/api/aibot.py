@@ -16,7 +16,7 @@ def on_new_pr_commits(repo_owner: str, repo_name: str, repo_path: str, pr_number
     # Review _then_ beautify code as per PEP8. Do not do it the other way around.
     # Goal: Only commits made by normal users trigger AI actions.
     print(f"New PR commit: {repo_owner} {repo_name} {repo_path} {pr_number} {source_branch}")
-    review_code_changes(repo_owner, repo_name, pr_number, repo_path)
+    review_code_changes(repo_owner, repo_name, repo_path, pr_number)
     beautify(repo_path, pr_number, source_branch)
     return {'message': 'New PR / new PR commits'}
 
