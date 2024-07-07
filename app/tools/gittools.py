@@ -11,7 +11,7 @@ from app.utils import commonutils, githubutils
 
 @tool
 @traceable
-def generate_branch_name(issue_number: int) -> str:
+def get_branch_name(issue_number: int) -> str:
     """
     Generate a git branch name given a git issue number.
     
@@ -195,16 +195,19 @@ def create_branch_and_push(local_repo_path: str, branch_name: str, commit_messag
 
 @tool
 @traceable
-def create_pull_request(repo_path: str, local_repo_path: str, source_branch: str, title: str, body: str):
+def create_pull_request(repo_path: str, local_repo_path: str, target_branch: str, title: str, body: str) -> int:
     """
-    Create a pull request targeting the main branch.
+    Create a pull request targeting a specific branch then return the pull request id.
     
     Args:
         repo_path (string): The repository path, e.g. owner/repo-name.
         local_repo_path (string): The path to the local directory storing the github repository.
-        source_branch (string): The source branch of the pull request.
+        target_branch (string): The target (base) branch of the pull request.
         title (str): The title of the pull request.
         body (str): The body description of the pull request.
+
+    Returns:
+        int: The id of the newly created pull request.
     """
     try:
         # Initialize GitHub API with token
@@ -217,22 +220,24 @@ def create_pull_request(repo_path: str, local_repo_path: str, source_branch: str
         branch_name = git.Repo(local_repo_path).active_branch.name
 
         # Create a pull request
-        pr = repo.create_pull(title=title, body=body, head=branch_name, base=source_branch)
+        pr = repo.create_pull(title=title, body=body, head=branch_name, base=target_branch)
         print(f"Pull request created: {pr.html_url}")
+        return pr.id
     except Exception as e:
         print(f"An error occurred: {e}")
+        return None
 
 
 
 @tool
 @traceable
-def link_issue_to_pull_request(pr_number: int, issue_id: int):
+def link_issue_to_pull_request(pr_id: int, issue_id: int):
     """
     Link the specified pull request to the specified issue.
     
     Args:
-        pr_number (number): The pull request number.
-        issue_id (number): The issue number.
+        pr_id (number): The pull request id.
+        issue_id (number): The issue id.
     """
     # The GitHub personal access token
     headers = {"Authorization": f"Bearer {env.GITHUB_TOKEN}"}
@@ -258,7 +263,7 @@ def link_issue_to_pull_request(pr_number: int, issue_id: int):
     # Variables for the mutation
     variables = {
         "input": {
-            "pullRequestId": pr_number,
+            "pullRequestId": pr_id,
             "body": f"Linking issue #{issue_id}"
         }
     }
@@ -271,7 +276,7 @@ def link_issue_to_pull_request(pr_number: int, issue_id: int):
 
     # Check for errors in the response
     if 'errors' in data:
-        raise Exception(f"Error linking issue to pull request: {data['errors']}")
+        raise Exception(f"Error linking issue {issue_id} to pull request {pr_id}: {data['errors']}")
 
     # Extract the linked issue details
     linked_issue = data['data']['addPullRequestReview']['pullRequestReview']['pullRequest']['closingIssuesReferences']['nodes'][0]

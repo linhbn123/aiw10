@@ -129,12 +129,12 @@ def github_webhook():
             if pr.get('state') == 'open' and not pr.get('draft', False):
                 if pr.get('user', {}).get('login') != env.BOOT_USERNAME:
                     head = pr.get('head', {})
-                    repo = pr.get('repo', {})
+                    repo = head.get('repo', {})
                     repo_owner = repo.get('owner', {}).get('login', None)
                     repo_name = repo.get('name', None)
-                    repo_path = repo.get('full_name', '')
-                    pr_number = pr.get('number', {})
-                    source_branch = head.get('ref', '')
+                    repo_path = repo.get('full_name', None)
+                    pr_number = pr.get('number', None)
+                    source_branch = head.get('ref', None)
                     response = on_new_pr_commits(repo_owner, repo_name, repo_path, pr_number, source_branch)
                 else:
                     response = {'message': 'Pull request author is the bot, ignoring'}

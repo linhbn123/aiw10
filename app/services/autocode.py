@@ -10,7 +10,7 @@ from langgraph.graph import StateGraph, END
 
 from app.utils import constants, commonutils
 from app.utils.agentutils import AgentState, create_agent, agent_node
-from app.tools.gittools import clone_repo, switch_to_local_repo_path, checkout_source_branch, generate_branch_name, create_branch_and_push, create_pull_request, link_issue_to_pull_request
+from app.tools.gittools import clone_repo, switch_to_local_repo_path, has_changes, get_branch_name, create_branch_and_push, create_pull_request, link_issue_to_pull_request
 from app.tools.filetools import create_directory, find_file, create_file, update_file
 
 
@@ -26,7 +26,7 @@ def implement_task(repo_path: str, issue_id: int, issue_number: int, issue_title
         f" following workers:  {members}. Given the following user request,"
         f" respond with the worker to act next. Each worker will perform a"
         f" task and respond with their results and status. When finished,"
-        f" respond with FINISH."
+        f" respond with FINISH. Arguments should always in JSON format."
     )
 
     options = members + ["FINISH"]
@@ -93,32 +93,30 @@ def implement_task(repo_path: str, issue_id: int, issue_number: int, issue_title
     )
     code_node = functools.partial(agent_node, agent=code_agent, name="Coder")
 
+    local_repo_path = constants.ROOT_DIR + '/' + commonutils.get_repo_identifier(repo_path) + '-' + commonutils.get_formatted_current_timestamp()
+
     write_agent = create_agent(
         llm,
         [create_directory, create_file, find_file, update_file],
-        "Write the generated code to files.",
+        f"Write the generated code to files in the local repository path {local_repo_path}.",
     )
     write_node = functools.partial(agent_node, agent=write_agent, name="FileWriter")
 
-    local_repo_path = constants.ROOT_DIR + '/' + commonutils.get_repo_identifier(repo_path) + '-' + commonutils.get_formatted_current_timestamp()
-
     checkout_agent = create_agent(
         llm,
-        [clone_repo, switch_to_local_repo_path, checkout_source_branch],
+        [clone_repo, switch_to_local_repo_path],
         "You're tasked with preparing the local git repository for other agents to work on it. " +
-        f"The repository path is {repo_path}, the local repository path is {local_repo_path} " +
-        "and the source branch is main.",
+        f"The repository path is {repo_path} and the local repository path is {local_repo_path}.",
     )
     checkout_node = functools.partial(agent_node, agent=checkout_agent, name="CheckoutAgent")
 
     pr_agent = create_agent(
         llm,
-        [generate_branch_name, create_branch_and_push, create_pull_request, link_issue_to_pull_request],
+        [has_changes, get_branch_name, create_branch_and_push, create_pull_request, link_issue_to_pull_request],
         "You're tasked with checking if there are local changes, and if yes, " +
-        "create a new branch, prepare a pull request targetting main " +
+        "create a new branch, create a pull request targetting the default branch 'main' " +
         f"and then link that pull request with the issue id {issue_id}. " +
-        f"The repository path is {repo_path}, the local repository path is {local_repo_path} " +
-        "and the source branch is the branch you created",
+        f"The repository path is {repo_path} and the local repository path is {local_repo_path}",
     )
     pr_node = functools.partial(agent_node, agent=pr_agent, name="PrAgent")
 
