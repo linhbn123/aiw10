@@ -60,11 +60,6 @@ def fetch_linked_issues(repo_owner: str, repo_name: str, pr_number: int):
   return results
 
 
-# Unfortunately, when a review (not an individual comment) is posted, we receive individual events
-# instead of a single event containing all review comments. E.g. if there are n comments in the review
-# (including replies) then we receive n + 1 events, 1 pull_request_review and n pull_request_review_comment
-# We therefore need to rely on the pull_request_review and then invoke github API to retrieve all comments
-# for that review
 def get_review_comments(repo_path, pr_number, review_id):
     pr = get_pr(repo_path, pr_number)
 

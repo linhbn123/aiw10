@@ -78,13 +78,11 @@ def github_webhook():
                 pr_url = pr.get('html_url', '')
                 pr_number = commonutils.extract_pr_number(pr_url)
                 repo_path = payload.get('repository', {}).get('full_name', None)
-                # TODO source branch can't be fetched
-                source_branch = payload.get('issue', {}).get('pull_request', {}).get('head', {}).get('ref', '')
                 comment = {
                     'comment': comment_body,
                     'replies': githubutils.get_replies(repo_path, pr_number, in_reply_to_id)
                 }
-                response = on_new_pr_comment(repo_path, pr_number, source_branch, comment)
+                response = on_new_pr_comment(repo_path, pr_number, comment)
             else:
                 response = {'message': 'Comment does not meet criteria'}
         else:
@@ -101,9 +99,13 @@ def github_webhook():
             pr = payload.get('issue', {}).get('pull_request', None)
             pr_number = pr.get('number', {})
             review_id = review.get('id', None)
+            # Unfortunately, when a review (not an individual comment) is posted, we receive individual events
+            # instead of a single event containing all review comments. E.g. if there are n comments in the review
+            # (including replies) then we receive n + 1 events, 1 pull_request_review and n pull_request_review_comment
+            # We therefore need to rely on the pull_request_review and then invoke github API to retrieve all comments
+            # for that review
             review_comments = githubutils.get_review_comments(repo_path, pr_number, review_id)
-            source_branch = pr.get('head', {}).get('ref', '')
-            response = on_new_pr_review(repo_path, pr_number, source_branch, review_comments)
+            response = on_new_pr_review(repo_path, pr_number, review_comments)
         else:
             response = {'message': 'Review does not meet criteria'}
 

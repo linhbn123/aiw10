@@ -9,10 +9,9 @@ from langchain.agents.format_scratchpad.openai_tools import (
 from langchain.agents.output_parsers.openai_tools import OpenAIToolsAgentOutputParser
 from app.utils import constants, commonutils, promptutils, githubutils
 from app.tools import gittools, filetools
-from app.api import env
 
 
-def address_review_comments(repo_path, pr_number, source_branch, comments):
+def address_review_comments(repo_path, pr_number, comments):
     pr = githubutils.get_pr(repo_path, pr_number)
 
     # Get the diffs of the pull request
@@ -76,5 +75,6 @@ def address_review_comments(repo_path, pr_number, source_branch, comments):
     agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
 
     # Format data for OpenAI prompt
+    source_branch = pr.head.ref
     user_prompt = promptutils.construct_coprogram_prompt(repo_path, local_repo_path, pr_number, source_branch, diffs, comments)
     list(agent_executor.stream({"input": user_prompt}))

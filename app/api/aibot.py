@@ -29,17 +29,15 @@ def on_new_main_commit(repo_path: str):
     return {'message': 'New main commit'}
 
 
-def on_new_pr_comment(repo_path: str, pr_number: int, source_branch: str, comment: str):
-    # TODO address the review comment if it begins with /support, do not make commit
-    print(f"New PR comment: {repo_path} {pr_number} {source_branch} {comment}")
-    address_review_comments(repo_path, pr_number, source_branch, [comment])
+def on_new_pr_comment(repo_path: str, pr_number: int, comment: str):
+    print(f"New PR comment: {repo_path} {pr_number} {comment}")
+    address_review_comments(repo_path, pr_number, [comment])
     return {'message': 'New PR comment'}
 
 
-def on_new_pr_review(repo_path: str, pr_number: str, source_branch: str, comments):
-    # TODO address the review comment if it begins with /support, do not make commit
-    print(f"New PR comments: {repo_path} {pr_number} {source_branch} {comments}")
-    address_review_comments(repo_path, pr_number, source_branch, comments)
+def on_new_pr_review(repo_path: str, pr_number: str, comments):
+    print(f"New PR comments: {repo_path} {pr_number} {comments}")
+    address_review_comments(repo_path, pr_number, comments)
     return {'message': 'New PR review'}
 
 
