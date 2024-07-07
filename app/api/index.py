@@ -1,4 +1,5 @@
 import json
+import logging
 
 from flask import Flask, jsonify, request, abort
 from werkzeug.exceptions import HTTPException
@@ -7,11 +8,12 @@ from app.api import env
 from app.api.aibot import *
 
 app = Flask(__name__)
-app.config['DEBUG'] = True
+app.debug = True
 
 
 @app.errorhandler(Exception)
 def handle_generic_exception(e):
+    logging.exception(e)
     error = {
         "code": 500,
         "name": 'Internal Server Error',
@@ -23,6 +25,7 @@ def handle_generic_exception(e):
 @app.errorhandler(HTTPException)
 def handle_http_exception(e):
     """Return JSON instead of HTML for HTTP errors."""
+    logging.exception(e)
     response = e.get_response()
     response.data = json.dumps({
         "code": e.code,
@@ -111,11 +114,12 @@ def github_webhook():
 
     elif event == 'issues' and payload.get('action') == 'opened':
         # Handle new issue creation
+        repo_path = payload.get('repository', {}).get('full_name', None)
         new_issue = payload.get('issue', {})
         issue_number = new_issue.get('number', None)
         issue_title = new_issue.get('title', None)
         issue_body = new_issue.get('body', None)
-        response = on_new_issue(issue_number, issue_title, issue_body)
+        response = on_new_issue(repo_path, issue_number, issue_title, issue_body)
 
     elif event == 'pull_request':
         action = payload.get('action')
