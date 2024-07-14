@@ -50,6 +50,9 @@ def github_webhook():
 
         if ref == 'refs/heads/main':
             response = on_new_main_commit(repo_path)
+        # TODO drop this case. If a commit is pushed to a PR, first we receive a push without 'pull_request'
+        # (and therefore this case won't happen), then we receive a pull_request with action = synchronize
+        # which has been supported below
         elif 'pull_request' in payload:
             pr = payload.get('pull_request', {})
             if pr.get('state') == 'open' and pr.get('merged') == False:
@@ -67,10 +70,13 @@ def github_webhook():
         else:
             response = {'message': 'Commit not to main branch or ready pull request'}
  
-    elif event == 'issue_comment':
+    # Unfortunately, when a single comment is issued, or when it's issued within a review, we both receive
+    # pull_request_review_comment.created.
+    # And for 
+    elif event == 'pull_request_review_comment':
         # Handle comments for a pull request that start with /support and are not raised by the bot
         issue_comment = payload.get('comment', {})
-        pr = payload.get('issue', {}).get('pull_request', {})
+        pr = payload.get('pull_request', {})
         if pr and issue_comment:
             comment_body = issue_comment.get('body', None)
             commenter_username = issue_comment.get('user', {}).get('login', None)
@@ -91,6 +97,12 @@ def github_webhook():
         else:
             response = {'message': 'Not an issue comment on a pull request'}
 
+    # TODO drop this support
+    # Firstly, when a review (not an individual comment) is posted, we receive individual events
+    # instead of a single event containing all review comments. E.g. if there are n comments in the review
+    # (including replies) then we receive n + 1 events, 1 pull_request_review and n pull_request_review_comment
+    # Secondly, with PyGithub's PullRequestComment, we do not know the review id and therefore we can't be sure
+    # that a comment in the PR is for the review we are processing.
     elif event == 'pull_request_review':
         # Process review comments
         review = payload.get('review', {})
@@ -99,7 +111,7 @@ def github_webhook():
         if (review_content.startswith('/support') and 
             review_username != env.BOOT_USERNAME):
             repo_path = payload.get('repository', {}).get('full_name', None)
-            pr = payload.get('issue', {}).get('pull_request', None)
+            pr = payload.get('pull_request', {})
             pr_number = pr.get('number', {})
             review_id = review.get('id', None)
             # Unfortunately, when a review (not an individual comment) is posted, we receive individual events
@@ -124,7 +136,7 @@ def github_webhook():
     elif event == 'pull_request':
         action = payload.get('action')
         pr = payload.get('pull_request', {})
-        if action in ['opened', 'ready_for_review']:
+        if action in ['opened', 'ready_for_review', 'synchronize']:
             if pr.get('state') == 'open' and not pr.get('draft', False):
                 if pr.get('user', {}).get('login') != env.BOOT_USERNAME:
                     head = pr.get('head', {})

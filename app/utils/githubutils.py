@@ -63,15 +63,29 @@ def fetch_linked_issues(repo_owner: str, repo_name: str, pr_number: int):
 def get_review_comments(repo_path, pr_number, review_id):
     pr = get_pr(repo_path, pr_number)
 
-    # Get the specific review by ID
-    review = pr.get_review(review_id)
+    # Get all review comments for the pull request
+    review_comments = pr.get_review_comments()
 
-    # Get all comments for the specific review
-    review_comments = review.get_comments()
+    print(f"Review ID: {review_id}")
+    print("Review Comments:")
+    for comment in review_comments:
+        print(f"Comment ID: {comment.id}")
+        print(f"Comment in_reply_to_id: {comment.in_reply_to_id}")
+        print(f"Comment original_position: {comment.original_position}")
+        print(f"Comment position: {comment.position}")
+        print(f"User: {comment.user.login}")
+        print(f"Body: {comment.body}")
+        print(f"Path: {comment.path}")
+        print(f"Created At: {comment.created_at}")
+        print(f"Updated At: {comment.updated_at}")
+        print("---")
+
+    # Filter comments based on the specific review ID
+    filtered_comments = [comment for comment in review_comments if comment.pull_request_review_id == review_id]
 
     # Collect detailed information about each comment
     comments_details = []
-    for comment in review_comments:
+    for comment in filtered_comments:
         author = {
             'display_name': comment.user.name,
             'email': comment.user.email,
