@@ -40,7 +40,7 @@ def create_index_if_not_exists(index_name):
         # Define the index configuration
         pinecone.create_index(
             name=index_name, 
-            dimension=128, 
+            dimension=3072,  # For text-embedding-3-large
             metric='cosine',  # Similarity metric
             spec=ServerlessSpec(
                 cloud='aws',

@@ -25,7 +25,7 @@ def address_review_comments(repo_path, pr_number, comments):
     
     # List of tools to use
     tools = [
-        ShellTool(ask_human_input=True),
+        ShellTool(ask_human_input=False),
         gittools.clone_repo,
         gittools.switch_to_local_repo_path,
         gittools.checkout_source_branch,
