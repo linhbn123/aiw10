@@ -17,12 +17,11 @@ def fetch_relevant_documents(repo_path, linked_issues):
 
     # Initialize Pinecone
     pinecone = Pinecone(api_key=env.PINECONE_API_KEY)
-    pinecone.init(index_name)
 
     # Querying the vector database for "relevant" docs
-    document_vectorstore = PineconeVectorStore(index_name, embedding=embeddings, pinecone_index=pinecone.Index(index_name))
+    document_vectorstore = PineconeVectorStore(index=pinecone.Index(index_name), embedding=embeddings)
     retriever = document_vectorstore.as_retriever()
-    context = retriever.get_relevant_documents(combined_linked_issues)
+    context = retriever.invoke(combined_linked_issues)
     results = [
         f"Source: {doc.metadata['source']}\nContent: {doc.page_content}"
         for doc in context
@@ -37,7 +36,7 @@ def create_index_if_not_exists(index_name):
     )
 
     # Check if the index already exists
-    if index_name not in pinecone.list_indexes():
+    if index_name not in pinecone.list_indexes().names():
         # Define the index configuration
         pinecone.create_index(
             name=index_name, 

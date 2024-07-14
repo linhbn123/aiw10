@@ -33,7 +33,7 @@ def clone_repo(repo_path: str, local_repo_path: str):
     Clone the repository to the local repo path if not already cloned.
 
     Args:
-        repo_path (str): The repository path, e.g. owner/repo-name.
+        repo_path (str): The repository path, e.g. if the repository http url is https://github.com/foo/bar.git then the repository path is foo/bar.
         local_repo_path (str): The path to the local repository where we will clone the remote repository, e.g. /tmp/data.
     """
     repo_url = f"https://{env.GITHUB_TOKEN}@github.com/{repo_path}.git"
@@ -194,33 +194,51 @@ def create_branch_and_push(local_repo_path: str, branch_name: str, commit_messag
 
 @tool
 @traceable
-def create_pull_request(repo_path: str, local_repo_path: str, target_branch: str, title: str, body: str, issue_number: int) -> int:
+def create_pull_request(repo_path: str, local_repo_path: str, branch_name: str, commit_message: str, target_branch: str, title: str, body: str) -> int:
     """
     Create a pull request targeting a specific branch then return the pull request id.
     
     Args:
         repo_path (str): The repository path, e.g. owner/repo-name.
         local_repo_path (str): The path to the local directory storing the github repository.
+        branch_name (str): The name of the new branch.
+        commit_message (str): The commit message.
         target_branch (str): The target (base) branch of the pull request.
         title (str): The title of the pull request.
         body (str): The body description of the pull request.
-        issue_number (int): The github issue number that can or will be fixed by the pull request.
 
     Returns:
         int: The id of the newly created pull request.
     """
     try:
+        # Initialize the repository object
+        local_repo = git.Repo(local_repo_path)
+
+        # Create a new branch and checkout
+        local_repo.git.checkout('-b', branch_name)
+        print(f"Created and switched to new branch: {branch_name}")
+
+        # Add all changed files
+        local_repo.git.add(A=True)
+        print("Added all changed files.")
+
+        # Commit changes
+        local_repo.index.commit(commit_message)
+        print(f"Committed changes with message: {commit_message}")
+
+        # Push the branch to remote
+        origin = local_repo.remote(name='origin')
+        origin.push(branch_name)
+        print(f"Pushed branch {branch_name} to remote origin.")
+
         # Initialize GitHub API with token
         g = Github(env.GITHUB_TOKEN)
 
         # Get the repo object
-        repo = g.get_repo(repo_path)
-
-        # Get the current branch name
-        branch_name = git.Repo(local_repo_path).active_branch.name
+        remote_repo = g.get_repo(repo_path)
 
         # Create a pull request
-        pr = repo.create_pull(title=title, body=body, head=branch_name, base=target_branch)
+        pr = remote_repo.create_pull(title=title, body=body, head=branch_name, base=target_branch)
         print(f"Pull request created: {pr.html_url}")
         return pr.id
     except Exception as e:
