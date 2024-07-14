@@ -10,11 +10,11 @@ from langgraph.graph import StateGraph, END
 
 from app.utils import constants, commonutils
 from app.utils.agentutils import AgentState, create_agent, agent_node
-from app.tools.gittools import clone_repo, switch_to_local_repo_path, has_changes, get_branch_name, create_branch_and_push, create_pull_request, link_issue_to_pull_request
+from app.tools.gittools import clone_repo, switch_to_local_repo_path, has_changes, get_branch_name, create_branch_and_push, create_pull_request
 from app.tools.filetools import create_directory, find_file, create_file, update_file
 
 
-def implement_task(repo_path: str, issue_id: int, issue_number: int, issue_title: str, issue_body: str):
+def implement_task(repo_path: str, issue_number: int, issue_title: str, issue_body: str):
     tavily_tool = TavilySearchResults(max_results=5)
 
     # This tool executes code locally, which can be unsafe. Use with caution.
@@ -112,11 +112,11 @@ def implement_task(repo_path: str, issue_id: int, issue_number: int, issue_title
 
     pr_agent = create_agent(
         llm,
-        [has_changes, get_branch_name, create_branch_and_push, create_pull_request, link_issue_to_pull_request],
+        [has_changes, get_branch_name, create_branch_and_push, create_pull_request],
         "You're tasked with checking if there are local changes, and if yes, " +
-        "create a new branch, create a pull request targetting the default branch 'main' " +
-        f"and then link that pull request with the issue id {issue_id}. " +
-        f"The repository path is {repo_path} and the local repository path is {local_repo_path}",
+        "create a new branch then create a pull request targetting the default branch 'main'. " +
+        f"The repository path is {repo_path}, the local repository path is {local_repo_path}. " +
+        f"Do start the pull request's description with sentence \"Closes #{issue_number}\".",
     )
     pr_node = functools.partial(agent_node, agent=pr_agent, name="PrAgent")
 

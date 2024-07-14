@@ -27,7 +27,7 @@ def create_agent(llm: ChatOpenAI, tools: list, system_prompt: str):
         ]
     )
     agent = create_openai_tools_agent(llm, tools, prompt)
-    executor = AgentExecutor(agent=agent, tools=tools)
+    executor = AgentExecutor(agent=agent, tools=tools, handle_parsing_errors=True, return_intermediate_steps=True, max_iterations=5)
     return executor
 
 

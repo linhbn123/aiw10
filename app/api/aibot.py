@@ -5,10 +5,10 @@ from app.services.upload import *
 from app.services.coprogram import *
 
 
-def on_new_issue(repo_path, issue_id, issue_number, issue_title, issue_body):
+def on_new_issue(repo_path, issue_number, issue_title, issue_body):
     # autocode, raise PR, link to the issue
-    print(f"New issue: {repo_path} {issue_id} {issue_number}, {issue_title}, {issue_body}")
-    implement_task(repo_path, issue_id, issue_number, issue_title, issue_body)
+    print(f"New issue: {repo_path} {issue_number}, {issue_title}, {issue_body}")
+    implement_task(repo_path, issue_number, issue_title, issue_body)
     return {'message': 'New PR has been raised'}
 
 

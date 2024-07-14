@@ -15,8 +15,12 @@ def fetch_relevant_documents(repo_path, linked_issues):
     # Note: we must use the same embedding model that we used when uploading the docs
     embeddings = OpenAIEmbeddings(model=constants.EMBEDDING_MODEL)
 
+    # Initialize Pinecone
+    pinecone = Pinecone(api_key=env.PINECONE_API_KEY)
+    pinecone.init(index_name)
+
     # Querying the vector database for "relevant" docs
-    document_vectorstore = PineconeVectorStore(index_name, embedding=embeddings)
+    document_vectorstore = PineconeVectorStore(index_name, embedding=embeddings, pinecone_index=pinecone.Index(index_name))
     retriever = document_vectorstore.as_retriever()
     context = retriever.get_relevant_documents(combined_linked_issues)
     results = [
@@ -41,7 +45,7 @@ def create_index_if_not_exists(index_name):
             metric='cosine',  # Similarity metric
             spec=ServerlessSpec(
                 cloud='aws',
-                region='us-west-2'
+                region='us-east-1' # The only available region for free plan
             )
         )
 

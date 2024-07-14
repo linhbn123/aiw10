@@ -1,7 +1,6 @@
 import os
 import subprocess
 import git
-import requests
 from github import Github
 from langchain.tools import tool
 from langsmith import traceable
@@ -34,8 +33,8 @@ def clone_repo(repo_path: str, local_repo_path: str):
     Clone the repository to the local repo path if not already cloned.
 
     Args:
-        repo_path (string): The repository path, e.g. owner/repo-name.
-        local_repo_path (string): The path to the local repository where we will clone the remote repository, e.g. /tmp/data.
+        repo_path (str): The repository path, e.g. owner/repo-name.
+        local_repo_path (str): The path to the local repository where we will clone the remote repository, e.g. /tmp/data.
     """
     repo_url = f"https://{env.GITHUB_TOKEN}@github.com/{repo_path}.git"
 
@@ -53,7 +52,7 @@ def switch_to_local_repo_path(local_repo_path: str):
     Switch to the local repo path.
 
     Args:
-        local_repo_path (string): The path to the local repository where we will clone the remote repository, e.g. /tmp/data.
+        local_repo_path (str): The path to the local repository where we will clone the remote repository, e.g. /tmp/data.
     """
     try:
         # Change the current working directory to the specified directory
@@ -70,7 +69,7 @@ def checkout_source_branch(source_branch: str):
     Checkout the main branch, pull latest changes, then checkout the specific branch.
 
     Args:
-        source_branch (string): The source branch of the pull request.
+        source_branch (str): The source branch of the pull request.
     """
     # Initialize the repository object
     repo = git.Repo(os.getcwd())
@@ -93,7 +92,7 @@ def get_files_from_pull_request(repo_path: str, pr_number: int):
     Retrieve the list of files changed in a pull request.
 
     Args:
-        repo_path (string): The repository path, e.g. owner/repo-name.
+        repo_path (str): The repository path, e.g. owner/repo-name.
         pr_number (number): The pull request number, e.g. if the pull request url is https://github.com/owner/repo-name/pull/1234 then the pull request number is 1234.
 
     Returns:
@@ -139,7 +138,7 @@ def commit_and_push(source_branch: str, commit_message: str):
     Commit the changes and push to the remote branch.
 
     Args:
-        source_branch (string): The source branch of the pull request.
+        source_branch (str): The source branch of the pull request.
         commit_message (str): The commit message.
     """
 
@@ -165,7 +164,7 @@ def create_branch_and_push(local_repo_path: str, branch_name: str, commit_messag
     Create a new branch, add all changed files, and push to the remote origin.
     
     Args:
-        local_repo_path (string): The path to the local directory storing the github repository.
+        local_repo_path (str): The path to the local directory storing the github repository.
         branch_name (str): The name of the new branch.
         commit_message (str): The commit message.
     """
@@ -195,16 +194,17 @@ def create_branch_and_push(local_repo_path: str, branch_name: str, commit_messag
 
 @tool
 @traceable
-def create_pull_request(repo_path: str, local_repo_path: str, target_branch: str, title: str, body: str) -> int:
+def create_pull_request(repo_path: str, local_repo_path: str, target_branch: str, title: str, body: str, issue_number: int) -> int:
     """
     Create a pull request targeting a specific branch then return the pull request id.
     
     Args:
-        repo_path (string): The repository path, e.g. owner/repo-name.
-        local_repo_path (string): The path to the local directory storing the github repository.
-        target_branch (string): The target (base) branch of the pull request.
+        repo_path (str): The repository path, e.g. owner/repo-name.
+        local_repo_path (str): The path to the local directory storing the github repository.
+        target_branch (str): The target (base) branch of the pull request.
         title (str): The title of the pull request.
         body (str): The body description of the pull request.
+        issue_number (int): The github issue number that can or will be fixed by the pull request.
 
     Returns:
         int: The id of the newly created pull request.
@@ -226,61 +226,3 @@ def create_pull_request(repo_path: str, local_repo_path: str, target_branch: str
     except Exception as e:
         print(f"An error occurred: {e}")
         return None
-
-
-
-@tool
-@traceable
-def link_issue_to_pull_request(pr_id: int, issue_id: int):
-    """
-    Link the specified pull request to the specified issue.
-    
-    Args:
-        pr_id (number): The pull request id.
-        issue_id (number): The issue id.
-    """
-    # The GitHub personal access token
-    headers = {"Authorization": f"Bearer {env.GITHUB_TOKEN}"}
-
-    # The GraphQL mutation
-    mutation = """
-    mutation($input: AddPullRequestReviewInput!) {
-      addPullRequestReview(input: $input) {
-        pullRequestReview {
-          pullRequest {
-            closingIssuesReferences(first: 1) {
-              nodes {
-                number
-                title
-              }
-            }
-          }
-        }
-      }
-    }
-    """
-
-    # Variables for the mutation
-    variables = {
-        "input": {
-            "pullRequestId": pr_id,
-            "body": f"Linking issue #{issue_id}"
-        }
-    }
-
-    # Make the request to the GitHub GraphQL API
-    response = requests.post('https://api.github.com/graphql', json={'query': mutation, 'variables': variables}, headers=headers)
-
-    # Parse the response
-    data = response.json()
-
-    # Check for errors in the response
-    if 'errors' in data:
-        raise Exception(f"Error linking issue {issue_id} to pull request {pr_id}: {data['errors']}")
-
-    # Extract the linked issue details
-    linked_issue = data['data']['addPullRequestReview']['pullRequestReview']['pullRequest']['closingIssuesReferences']['nodes'][0]
-
-    result = f"Issue: [{linked_issue['number']}: {linked_issue['title']}] linked successfully."
-
-    return result
