@@ -1,4 +1,3 @@
-from github import Github
 from langchain.prompts.prompt import PromptTemplate
 from langchain_openai import ChatOpenAI
 from app.utils import constants, promptutils, openaiutils, pineconeutils, githubutils

@@ -11,7 +11,8 @@ from langgraph.graph import StateGraph, END
 from app.utils import constants, commonutils
 from app.utils.agentutils import AgentState, create_agent, agent_node
 from app.tools.gittools import clone_repo, switch_to_local_repo_path, has_changes, get_branch_name, create_pull_request
-from app.tools.filetools import create_directory, find_file, create_file, update_file
+from app.tools.filetools import create_directory, create_or_update_file
+from app.tools.pineconetools import find_relevant_source_code
 
 
 def implement_task(repo_path: str, issue_number: int, issue_title: str, issue_body: str):
@@ -68,28 +69,37 @@ def implement_task(repo_path: str, issue_number: int, issue_title: str, issue_bo
         | JsonOutputFunctionsParser()
     )
 
-    research_agent = create_agent(llm, [tavily_tool], "You are a web researcher.")
+    research_agent = create_agent(llm, [tavily_tool], "You are a web researcher. You research the web to see how to implement a specific task")
     research_node = functools.partial(agent_node, agent=research_agent, name="Researcher")
 
     review_agent = create_agent(llm, [tavily_tool],
-                                """You are a senior developer. You excel at code reviews.
-                                You give detailed and specific actionable feedback.
-                                You aren't rude, but you don't worry about being polite either.
-                                Instead you just communicate directly about technical matters.
-                                """)
+        f"""You are a senior developer. You excel at code reviews.
+        You give detailed and specific actionable feedback.
+        You aren't rude, but you don't worry about being polite either.
+        Instead you just communicate directly about technical matters.
+        """
+    )
     review_node = functools.partial(agent_node, agent=review_agent, name="Reviewer")
 
     test_agent = create_agent(
         llm,
-        [python_repl_tool],  # DANGER DANGER runs arbitrary Python code
-        "You may generate safe python code to test functions and classes using unittest or pytest.",
+        [find_relevant_source_code, python_repl_tool],  # DANGER DANGER runs arbitrary Python code
+        f"""
+        You may generate safe python code to test functions and classes using unittest or pytest. 
+        You always find relevant source code first to avoid reinventing the wheel. 
+        The repository path is {repo_path} and the issue body is {issue_body}.
+        """,
     )
     test_node = functools.partial(agent_node, agent=test_agent, name="QATester")
 
     code_agent = create_agent(
         llm,
-        [python_repl_tool],  # ALSO DANGER DANGER
-        "You may generate safe python code to analyze data with pandas and generate charts using matplotlib.",
+        [find_relevant_source_code],
+        f"""
+        You are a senior developer. You excel at writing clean, performant code to implement a task. 
+        You always find relevant source code first to avoid reinventing the wheel or creating duplicate source code files.
+        The repository path is {repo_path} and the issue body is {issue_body}.
+        """
     )
     code_node = functools.partial(agent_node, agent=code_agent, name="Coder")
 
@@ -97,7 +107,7 @@ def implement_task(repo_path: str, issue_number: int, issue_title: str, issue_bo
 
     write_agent = create_agent(
         llm,
-        [create_directory, create_file, find_file, update_file],
+        [switch_to_local_repo_path, create_directory, create_or_update_file],
         f"Write the generated code to files in the local repository path {local_repo_path}.",
     )
     write_node = functools.partial(agent_node, agent=write_agent, name="FileWriter")

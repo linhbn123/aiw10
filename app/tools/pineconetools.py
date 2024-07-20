@@ -34,3 +34,16 @@ def upload_python_source_code_to_pinecone(repo_path: str, local_repo_path: str):
     embedding = OpenAIEmbeddings(model=constants.EMBEDDING_MODEL)
     PineconeVectorStore.from_documents(documents, embedding, index_name=index_name)
     print("Loading to vectorstore done")
+
+
+@tool
+@traceable
+def find_relevant_source_code(repo_path: str, issue_body: str):
+    """
+    Find relevant source code in pinecone.
+    
+    Args:
+        repo_path (str): The repository path, e.g. if the repository http url is https://github.com/foo/bar.git then the repository path is foo/bar.
+        issue_body (str): The github issue body.
+    """
+    return pineconeutils.fetch_relevant_documents(repo_path, [issue_body])
