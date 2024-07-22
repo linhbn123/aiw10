@@ -1,0 +1,217 @@
+import os
+import subprocess
+import git
+from github import Github
+from langchain.tools import tool
+from langsmith import traceable
+from app.api import env
+from app.utils import commonutils, githubutils
+
+
+@tool
+@traceable
+def get_branch_name(issue_number: int) -> str:
+    """
+    Generate a git branch name given a git issue number.
+    
+    Args:
+        issue_number (int): The GitHub issue number.
+        
+    Returns:
+        str: The generated branch name.
+    """
+    timestamp = commonutils.get_formatted_current_timestamp()
+    branch_name = f"autocode/github-issue-{issue_number}-{timestamp}"
+    print(f"Generated branch name: {branch_name}")
+    return branch_name
+
+
+@tool
+@traceable
+def clone_repo(repo_path: str, local_repo_path: str):
+    """
+    Clone the repository to the local repo path if not already cloned.
+
+    Args:
+        repo_path (str): The repository path, e.g. if the repository http url is https://github.com/foo/bar.git then the repository path is foo/bar.
+        local_repo_path (str): The path to the local repository where we will clone the remote repository, e.g. /tmp/data.
+    """
+    repo_url = f"https://{env.GITHUB_TOKEN}@github.com/{repo_path}.git"
+
+    if not os.path.exists(local_repo_path):
+        git.Repo.clone_from(repo_url, local_repo_path)
+        print(f"Cloned repo from {repo_url} to {local_repo_path}")
+    else:
+        print(f"Repo already exists at {local_repo_path}")
+
+
+@tool
+@traceable
+def switch_to_local_repo_path(local_repo_path: str):
+    """
+    Switch to the local repo path.
+
+    Args:
+        local_repo_path (str): The path to the local repository where we will clone the remote repository, e.g. /tmp/data.
+    """
+    try:
+        # Change the current working directory to the specified directory
+        os.chdir(local_repo_path)
+        print(f"Switched to directory: {local_repo_path}")
+    except Exception as e:
+        print(f"Failed to switch to directory: {e}")
+
+
+@tool
+@traceable
+def checkout_source_branch(local_repo_path: str, source_branch: str):
+    """
+    Checkout the main branch, pull latest changes, then checkout the specific branch.
+
+    Args:
+        local_repo_path (str): The path to the local repository where we will clone the remote repository, e.g. /tmp/data.
+        source_branch (str): The source branch of the pull request.
+    """
+    # Initialize the repository object
+    switch_to_local_repo_path(local_repo_path)
+    repo = git.Repo(os.getcwd())
+
+    # 1. Checkout the main branch
+    repo.git.checkout('main')
+
+    # 2. Pull the latest changes
+    repo.git.pull()
+
+    # 3. Checkout the specific branch
+    repo.git.checkout(source_branch)
+    print(f"Active branch: {repo.active_branch.name}")
+
+
+@tool
+@traceable
+def get_files_from_pull_request(repo_path: str, pr_number: int):
+    """
+    Retrieve the list of files changed in a pull request.
+
+    Args:
+        repo_path (str): The repository path, e.g. owner/repo-name.
+        pr_number (number): The pull request number, e.g. if the pull request url is https://github.com/owner/repo-name/pull/1234 then the pull request number is 1234.
+
+    Returns:
+        list: A list of filenames that have been changed in the pull request.
+    """
+    pr = githubutils.get_pr(repo_path, pr_number)
+
+    # Get the diffs of the pull request
+    return [file.filename for file in pr.get_files()]
+
+
+@tool
+@traceable
+def run_autopep8(files):
+    """
+    Run autopep8 on a list of files.
+
+    Args:
+        files (list): A list of file paths to be formatted.
+    """
+    for file in files:
+        subprocess.run(['autopep8', '--in-place', file])
+
+
+@tool
+@traceable
+def has_changes(local_repo_path: str):
+    """
+    Check if the repository has any changes.
+
+    Returns:
+        local_repo_path (str): The path to the local repository where we will clone the remote repository, e.g. /tmp/data.
+        bool: True if the repository has changes, False otherwise.
+    """
+    switch_to_local_repo_path(local_repo_path)
+    repo = git.Repo(os.getcwd())
+    print(f"Repo has changes: {repo.is_dirty()}")
+    return repo.is_dirty()
+
+
+@tool
+@traceable
+def commit_and_push(local_repo_path: str, source_branch: str, commit_message: str):
+    """
+    Commit the changes and push to the remote branch.
+
+    Args:
+        local_repo_path (str): The path to the local repository where we will clone the remote repository, e.g. /tmp/data.
+        source_branch (str): The source branch of the pull request.
+        commit_message (str): The commit message.
+    """
+
+    switch_to_local_repo_path(local_repo_path)
+    repo = git.Repo(os.getcwd())
+    print(f"Active branch: {repo.active_branch.name}")
+    repo.git.add(A=True)
+    repo.index.commit(commit_message)
+    origin = repo.remote(name='origin')
+    print(f"Pushing changes to remote branch '{source_branch}'")
+    push_result = origin.push(refspec=f'{source_branch}:{source_branch}')
+    print("Push result:")
+    for push_info in push_result:
+        print(f"  - Summary: {push_info.summary}")
+        print(f"    Remote ref: {push_info.remote_ref}")
+        print(f"    Local ref: {push_info.local_ref}")
+        print(f"    Flags: {push_info.flags}")
+
+
+@tool
+@traceable
+def create_pull_request(repo_path: str, local_repo_path: str, branch_name: str, commit_message: str, target_branch: str, title: str, body: str) -> int:
+    """
+    Create a pull request targeting a specific branch then return the pull request id.
+    
+    Args:
+        repo_path (str): The repository path, e.g. owner/repo-name.
+        local_repo_path (str): The path to the local directory storing the github repository.
+        branch_name (str): The name of the new branch.
+        commit_message (str): The commit message.
+        target_branch (str): The target (base) branch of the pull request.
+        title (str): The title of the pull request.
+        body (str): The body description of the pull request.
+
+    Returns:
+        int: The id of the newly created pull request.
+    """
+    try:
+        # Initialize the repository object
+        local_repo = git.Repo(local_repo_path)
+
+        # Create a new branch and checkout
+        local_repo.git.checkout('-b', branch_name)
+        print(f"Created and switched to new branch: {branch_name}")
+
+        # Add all changed files
+        local_repo.git.add(A=True)
+        print("Added all changed files.")
+
+        # Commit changes
+        local_repo.index.commit(commit_message)
+        print(f"Committed changes with message: {commit_message}")
+
+        # Push the branch to remote
+        origin = local_repo.remote(name='origin')
+        origin.push(branch_name)
+        print(f"Pushed branch {branch_name} to remote origin.")
+
+        # Initialize GitHub API with token
+        g = Github(env.GITHUB_TOKEN)
+
+        # Get the repo object
+        remote_repo = g.get_repo(repo_path)
+
+        # Create a pull request
+        pr = remote_repo.create_pull(title=title, body=body, head=branch_name, base=target_branch)
+        print(f"Pull request created: {pr.html_url}")
+        return pr.id
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
