@@ -11,7 +11,7 @@ from langgraph.graph import StateGraph, END
 from app.utils import constants, commonutils
 from app.utils.agentutils import AgentState, create_agent, agent_node
 from app.tools.gittools import clone_repo, switch_to_local_repo_path, has_changes, get_branch_name, create_pull_request
-from app.tools.filetools import create_directory, create_or_update_file
+from app.tools.filetools import create_directory, find_file, create_or_update_file
 from app.tools.pineconetools import find_relevant_source_code
 
 
@@ -86,7 +86,9 @@ def implement_task(repo_path: str, issue_number: int, issue_title: str, issue_bo
         [find_relevant_source_code, python_repl_tool],  # DANGER DANGER runs arbitrary Python code
         f"""
         You may generate safe python code to test functions and classes using unittest or pytest. 
-        You always find relevant source code first to avoid reinventing the wheel. 
+        You put source code to appropriate directories. 
+        You always find relevant source code first to make sure you update correct files. 
+        Only when the files do not exist then you create new ones. 
         The repository path is {repo_path} and the issue body is {issue_body}.
         """,
     )
@@ -97,7 +99,9 @@ def implement_task(repo_path: str, issue_number: int, issue_title: str, issue_bo
         [find_relevant_source_code],
         f"""
         You are a senior developer. You excel at writing clean, performant code to implement a task. 
-        You always find relevant source code first to avoid reinventing the wheel or creating duplicate source code files.
+        You put source code to appropriate directories. 
+        You always find relevant source code first to make sure you update correct files. 
+        Only when the files do not exist then you create new ones. 
         The repository path is {repo_path} and the issue body is {issue_body}.
         """
     )
@@ -107,7 +111,7 @@ def implement_task(repo_path: str, issue_number: int, issue_title: str, issue_bo
 
     write_agent = create_agent(
         llm,
-        [switch_to_local_repo_path, create_directory, create_or_update_file],
+        [switch_to_local_repo_path, create_directory, find_file, create_or_update_file],
         f"Write the generated code to files in the local repository path {local_repo_path}.",
     )
     write_node = functools.partial(agent_node, agent=write_agent, name="FileWriter")

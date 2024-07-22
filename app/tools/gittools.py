@@ -64,14 +64,16 @@ def switch_to_local_repo_path(local_repo_path: str):
 
 @tool
 @traceable
-def checkout_source_branch(source_branch: str):
+def checkout_source_branch(local_repo_path: str, source_branch: str):
     """
     Checkout the main branch, pull latest changes, then checkout the specific branch.
 
     Args:
+        local_repo_path (str): The path to the local repository where we will clone the remote repository, e.g. /tmp/data.
         source_branch (str): The source branch of the pull request.
     """
     # Initialize the repository object
+    switch_to_local_repo_path(local_repo_path)
     repo = git.Repo(os.getcwd())
 
     # 1. Checkout the main branch
@@ -119,13 +121,15 @@ def run_autopep8(files):
 
 @tool
 @traceable
-def has_changes():
+def has_changes(local_repo_path: str):
     """
     Check if the repository has any changes.
 
     Returns:
+        local_repo_path (str): The path to the local repository where we will clone the remote repository, e.g. /tmp/data.
         bool: True if the repository has changes, False otherwise.
     """
+    switch_to_local_repo_path(local_repo_path)
     repo = git.Repo(os.getcwd())
     print(f"Repo has changes: {repo.is_dirty()}")
     return repo.is_dirty()
@@ -133,18 +137,20 @@ def has_changes():
 
 @tool
 @traceable
-def commit_and_push(source_branch: str, commit_message: str):
+def commit_and_push(local_repo_path: str, source_branch: str, commit_message: str):
     """
     Commit the changes and push to the remote branch.
 
     Args:
+        local_repo_path (str): The path to the local repository where we will clone the remote repository, e.g. /tmp/data.
         source_branch (str): The source branch of the pull request.
         commit_message (str): The commit message.
     """
 
+    switch_to_local_repo_path(local_repo_path)
     repo = git.Repo(os.getcwd())
     print(f"Active branch: {repo.active_branch.name}")
-    repo.git.add(update=True)
+    repo.git.add(A=True)
     repo.index.commit(commit_message)
     origin = repo.remote(name='origin')
     print(f"Pushing changes to remote branch '{source_branch}'")

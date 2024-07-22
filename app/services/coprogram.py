@@ -32,8 +32,7 @@ def address_review_comments(repo_path, pr_number, comments):
         gittools.commit_and_push,
         filetools.create_directory,
         filetools.find_file,
-        filetools.create_file,
-        filetools.update_file
+        filetools.create_or_update_file
     ]
 
     # Configure the language model
@@ -72,7 +71,7 @@ def address_review_comments(repo_path, pr_number, comments):
         | OpenAIToolsAgentOutputParser()
     )
 
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, handle_parsing_errors=True, max_iterations=5)
 
     # Format data for OpenAI prompt
     source_branch = pr.head.ref

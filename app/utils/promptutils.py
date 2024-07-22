@@ -80,18 +80,18 @@ def construct_coprogram_prompt(repo_path: str, local_repo_path: str, pr_number: 
 
     # Construct the prompt with clear instructions for the LLM.
     prompt = (
-        "Address the below review comments.\n"
-        "- If the comments ask you to make code changes, then you clone the repository "
-        f"{repo_path} to local directory {local_repo_path}. "
-        f"Then in that local directory,  checkout the source branch {source_branch} "
-        f"of pull request number {pr_number}, make code changes as per the review comments, "
-        "commit the change and push to the remote repository.\n"
-        "- If the comments do not ask you to make code changes, answer them. Be clear and concise.\n"
+        "You are a senior developer. You excel at writing clean, performant code to implement a task. "
+        "You always find relevant source code first to avoid reinventing the wheel or creating duplicate source code files. "
+        "Your task is to read the diff of a pull request (specified below) and address the comments. "
+        f"You need to clone the repository {repo_path} to local directory {local_repo_path}. "
+        f"Then in that local directory, checkout the source branch {source_branch} "
+        f"of pull request number {pr_number}, make code changes in relevant files "
+        "as per the comments, then commit the change and push to the remote repository.\n"
         "-------------------------------------------------------------------------------------\n"
         "Review comments:\n"
         f"{combined_comments}\n"
         "-------------------------------------------------------------------------------------\n"
-        "Code changes:\n"
+        "Diff of the pull request with paths to files:\n"
         f"{combined_diffs}\n"
         "-------------------------------------------------------------------------------------\n"
     )

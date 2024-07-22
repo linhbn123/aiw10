@@ -28,14 +28,15 @@ def create_agent(llm: ChatOpenAI, tools: list, system_prompt: str):
         ]
     )
     agent = create_openai_tools_agent(llm, tools, prompt)
-    executor = AgentExecutor(agent=agent, tools=tools, handle_parsing_errors=True, max_iterations=5)
+    executor = AgentExecutor(agent=agent, tools=tools, verbose=True, handle_parsing_errors=True, max_iterations=5)
     return executor
 
 
 def agent_node(state, agent, name):
+    print(f"Invoking {name}...")
     # Log the state before invoking the agent
-    print(f"Invoking {name} with state: {state}")
+    # print(f"Invoking {name} with state: {state}")
     result = agent.invoke(state)
     # Log the state after invoking the agent
-    print(f"{name} returned result: {result}")
+    # print(f"{name} returned result: {result}")
     return {"messages": [HumanMessage(content=result["output"], name=name)]}

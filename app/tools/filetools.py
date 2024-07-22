@@ -23,7 +23,7 @@ def create_directory(local_repo_path: str, dir_path: str) -> str:
     try:
         os.makedirs(full_dir_path, exist_ok=True)
         subprocess.run(["chmod", "u+w", full_dir_path], check=True)
-        return f"Directory successfully '{full_dir_path}' created and set as writeable."
+        return f"Directory '{full_dir_path}' successfully created and set as writeable."
     except subprocess.CalledProcessError as e:
         return f"Failed to create or set writable directory '{full_dir_path}': {e}"
     except Exception as e:
